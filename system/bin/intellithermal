@@ -2,22 +2,54 @@
 PATH=/sbin:/system/sbin:/system/bin:/system/xbin
 PROFILE_PERFORMANCE_FILE="/sdcard/perf_list"
 export PATH
+
+function set_little_maxfreq {
+    for i in {0,1,2,3}
+    do
+        echo $1 > /sys/devices/system/cpu/cpu$i/cpufreq/scaling_max_freq
+    done
+}
+
+#POST BOOT PEAK
+
+echo 4 > /sys/devices/system/cpu/cpu0/core_ctl/max_cpus
+echo 4 > /sys/devices/system/cpu/cpu0/core_ctl/min_cpus
+echo 4 > /sys/devices/system/cpu/cpu4/core_ctl/max_cpus
+echo 1 > /sys/devices/system/cpu/cpu4/core_ctl/min_cpus
+set_little_maxfreq 1555200
+
+sleep 60
+
 while [ 1 ]
 do
-	GREP_RESULT=`dumpsys activity activities | grep mFocusedActivity | cut -d ' ' -f 6 | cut -d '/' -f 0 | grep -f $PROFILE_PERFORMANCE_FILE -F`
-	if [ -z "$GREP_RESULT" ]
+	SCREEN_ON=`dumpsys power | grep mHoldingDisplaySuspendBlocker=true`
+	if [ -z $SCREEN_ON ]
 	then
-		#POWERSAVE
-		echo 2 > /sys/devices/system/cpu/cpu0/core_ctl/max_cpus
+		#SCREENOFF
+		POLL_CYCLE="0.15"
+        set_little_maxfreq 672000
+		echo 1 > /sys/devices/system/cpu/cpu0/core_ctl/max_cpus
 		echo 1 > /sys/devices/system/cpu/cpu0/core_ctl/min_cpus
-		echo 1 > /sys/devices/system/cpu/cpu4/core_ctl/max_cpus
+		echo 0 > /sys/devices/system/cpu/cpu4/core_ctl/max_cpus
 		echo 0 > /sys/devices/system/cpu/cpu4/core_ctl/min_cpus
 	else
-		#PERFORMANCE
-		echo 4 > /sys/devices/system/cpu/cpu0/core_ctl/max_cpus
-		echo 1 > /sys/devices/system/cpu/cpu0/core_ctl/min_cpus
-		echo 2 > /sys/devices/system/cpu/cpu4/core_ctl/max_cpus
-		echo 0 > /sys/devices/system/cpu/cpu4/core_ctl/min_cpus
+        POLL_CYCLE="20"
+        set_little_maxfreq 1555200
+		GREP_RESULT=`dumpsys activity activities | grep mFocusedActivity | cut -d ' ' -f 6 | cut -d '/' -f 0 | grep -f $PROFILE_PERFORMANCE_FILE -F`
+		if [ -z "$GREP_RESULT" ]
+		then
+			#POWERSAVE
+			echo 3 > /sys/devices/system/cpu/cpu0/core_ctl/max_cpus
+			echo 1 > /sys/devices/system/cpu/cpu0/core_ctl/min_cpus
+			echo 1 > /sys/devices/system/cpu/cpu4/core_ctl/max_cpus
+			echo 0 > /sys/devices/system/cpu/cpu4/core_ctl/min_cpus
+		else
+			#PERFORMANCE
+			echo 4 > /sys/devices/system/cpu/cpu0/core_ctl/max_cpus
+			echo 2 > /sys/devices/system/cpu/cpu0/core_ctl/min_cpus
+			echo 2 > /sys/devices/system/cpu/cpu4/core_ctl/max_cpus
+			echo 1 > /sys/devices/system/cpu/cpu4/core_ctl/min_cpus
+		fi
 	fi
-	sleep 20
+	sleep $POLL_CYCLE
 done

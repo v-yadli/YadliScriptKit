@@ -4,7 +4,7 @@ export PATH
 KCAL=/sys/devices/platform/kcal_ctrl.0/kcal
 MAX=255
 RED=255
-GREEN=170
+GREEN=175
 BLUE=105
 
 #dim begin=19:30
