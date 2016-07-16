@@ -1,0 +1,62 @@
+#/system/bin/sh
+PATH=/sbin:/system/sbin:/system/bin:/system/xbin
+export PATH
+KCAL=/sys/devices/platform/kcal_ctrl.0/kcal
+MAX=255
+RED=255
+GREEN=170
+BLUE=105
+
+#dim begin=19:30
+ns_time_dim_begin=`dc "19 60 * 30 + p"`
+#dim end=20:30
+ns_time_dim_end=`dc "20 60 * 30 + p"`
+#dim duration=60min
+ns_time_dim_duration=`dc "$ns_time_dim_end $ns_time_dim_begin - p"`
+#restore time=7:30
+ns_time_restore=`dc "7 60 * 30 + p"`
+
+function full_dim()
+{
+    echo "$RED $GREEN $BLUE" > $KCAL
+}
+
+function full_bright()
+{
+    echo "$MAX $MAX $MAX" > $KCAL
+}
+
+# $1 is time
+function partial_dim()
+{
+    percent=`dc "$1 $ns_time_dim_begin - $ns_time_dim_duration / p"`
+    red_val=`dc "$MAX $MAX $RED - $percent * - p"`
+    green_val=`dc "$MAX $MAX $GREEN - $percent * - p"`
+    blue_val=`dc "$MAX $MAX $BLUE - $percent * - p"`
+
+    red_val=`awk  'BEGIN { rounded = sprintf("%.0f", '$red_val'); print rounded }'`
+    green_val=`awk  'BEGIN { rounded = sprintf("%.0f", '$green_val'); print rounded }'`
+    blue_val=`awk  'BEGIN { rounded = sprintf("%.0f", '$blue_val'); print rounded }'`
+    echo "$red_val $green_val $blue_val" > $KCAL
+}
+
+while [ 1 ]
+do
+    hour=`date +%H`
+    minute=`date +%M`
+    time=`dc "$hour 60 * $minute + p"`
+    if [ $time -lt $ns_time_restore ]
+    then
+        full_dim
+    elif [ $time -lt $ns_time_dim_begin ]
+    then
+        full_bright
+    elif [ $time -lt $ns_time_dim_end ]
+    then
+        partial_dim $time
+    else
+        full_dim
+    fi
+
+    sleep 60
+done
