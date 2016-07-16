@@ -1,0 +1,15 @@
+#/system/bin/sh
+PATH=/sbin:/system/sbin:/system/bin:/system/xbin
+export PATH
+
+for i in $(seq 0 7)
+do
+    val=`cat /sys/devices/system/cpu/cpu$i/cpufreq/cpuinfo_cur_freq 2>/dev/null`
+    if [ ! -z $val ]
+    then
+        echo "CPU $i: $val" 
+    fi
+done
+
+echo "Last deep sleep records:"
+tail /sdcard/sleep_record 2>/dev/null

@@ -312,3 +312,11 @@ setprop dalvik.vm.jmiopts forcecopy
 setprop dalvik.vm.dexopt-data-only 1
 
 # }}}
+
+# {{{Yadli: ZRAM
+
+echo $((1024*1024*1024)) > /sys/block/zram0/disksize
+mkswap /dev/block/zram0
+swapon -p 10 /dev/block/zram0
+
+# }}}

@@ -6,7 +6,7 @@ export PATH
 function set_little_maxfreq {
     for i in {0,1,2,3}
     do
-        echo $1 > /sys/devices/system/cpu/cpu$i/cpufreq/scaling_max_freq
+        echo $1 > /sys/devices/system/cpu/cpu$i/cpufreq/scaling_max_freq 2>/dev/null
     done
 }
 
@@ -16,45 +16,67 @@ echo 4 > /sys/devices/system/cpu/cpu0/core_ctl/max_cpus
 echo 4 > /sys/devices/system/cpu/cpu0/core_ctl/min_cpus
 echo 4 > /sys/devices/system/cpu/cpu4/core_ctl/max_cpus
 echo 1 > /sys/devices/system/cpu/cpu4/core_ctl/min_cpus
-set_little_maxfreq 1555200
+set_little_maxfreq 1555200 2>/dev/null
 
 # Yadi: leave it at maximum performance for a while to boot up
 sleep 120
 
+ACCUMULATED_POLL_CYCLE=0
+ACCUMULATED_POLL_THRESHOLD=60
+DEEP_SLEEP_THRESHOLD=3  # detects deep sleep, also lag
+DEEP_SLEEP_COUNTER=0
+LCD_BACKLIGHT=0
+LAST_LCD_BACKLIGHT=0
+
 while [ 1 ]
 do
-    DUMPSYS_POWER=(`dumpsys power | grep -E 'mHoldingDisplaySuspendBlocker|mWakefulness'`)
-    mWakefulness=${DUMPSYS_POWER[0]}
-    mWakefulnessChanging=${DUMPSYS_POWER[1]}
-    mHoldingDisplaySuspendBlocker=${DUMPSYS_POWER[2]}
+
+    LAST_LCD_BACKLIGHT=$LCD_BACKLIGHT
+    LCD_BACKLIGHT=$(cat /sys/class/leds/lcd-backlight/brightness)
 
     # Yadli: condition for enterning low-power mode:
-    # screen wakelock is released, and it's not waking up
+    # LCD_BACKLIGHT decreases to 0
     # waking up condition:
-    # wakefulness is Awake, or wakefulnessChanging is true.
+    # LCD_BACKLIGHT is not 0, or DEEP_SLEEP_COUNTER jumped
 
+    LastAwake=$Awake
     Awake="."
-    if ! [ "$mWakefulness" == "mWakefulness=Awake" ] || [ "$mWakefulnessChanging" == "mWakefulnessChanging=true" ]
+
+    if [ "$LCD_BACKLIGHT" -eq "0" ] 
     then
-        if [ "$mHoldingDisplaySuspendBlocker" == "mHoldingDisplaySuspendBlocker=false" ]
+        #screen is off
+        #check DEEP_SLEEP_COUNTER
+        new_t=$(date +%s)
+        if [ "$(($new_t - $DEEP_SLEEP_COUNTER))" -lt "$DEEP_SLEEP_THRESHOLD" ] || [ ! -z $LastAwake ]
         then
+            # delta T doesn't jitter, or we're just powering off
+            # screen, stay in low power mode
             Awake=""
+        else
+            # date time jittered. let's record this, and get out
+            echo $(date) : $(($new_t - $DEEP_SLEEP_COUNTER)) >> /sdcard/sleep_record
         fi
+        DEEP_SLEEP_COUNTER=$new_t
     fi
 
 	if [ -z $Awake ]
 	then
 		#SCREENOFF
-		POLL_CYCLE="0.15"
-        set_little_maxfreq 672000
-		echo 1 > /sys/devices/system/cpu/cpu0/core_ctl/max_cpus
-		echo 1 > /sys/devices/system/cpu/cpu0/core_ctl/min_cpus
-		echo 0 > /sys/devices/system/cpu/cpu4/core_ctl/max_cpus
-		echo 0 > /sys/devices/system/cpu/cpu4/core_ctl/min_cpus
+        ACCUMULATED_POLL_CYCLE=$(($ACCUMULATED_POLL_CYCLE+1))
+		POLL_CYCLE="0.3"
+        if [ "$ACCUMULATED_POLL_CYCLE" -le "$ACCUMULATED_POLL_THRESHOLD" ]
+        then
+            set_little_maxfreq 768000 2>/dev/null
+            echo 2 > /sys/devices/system/cpu/cpu0/core_ctl/max_cpus
+            echo 1 > /sys/devices/system/cpu/cpu0/core_ctl/min_cpus
+            echo 0 > /sys/devices/system/cpu/cpu4/core_ctl/max_cpus
+            echo 0 > /sys/devices/system/cpu/cpu4/core_ctl/min_cpus
+        fi
 	else
         POLL_CYCLE="20"
-        set_little_maxfreq 1555200
-		GREP_RESULT=`dumpsys activity activities | grep mFocusedActivity | cut -d ' ' -f 6 | cut -d '/' -f 0 | grep -f $PROFILE_PERFORMANCE_FILE -F`
+        ACCUMULATED_POLL_CYCLE=0
+        set_little_maxfreq 1555200 2>/dev/null
+		GREP_RESULT=`dumpsys activity activities | grep mFocusedActivity | cut -d ' ' -f 6 | cut -d '/' -f 0 | busybox grep -F -f $PROFILE_PERFORMANCE_FILE`
 		if [ -z "$GREP_RESULT" ]
 		then
 			#POWERSAVE
