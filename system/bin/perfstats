@@ -13,3 +13,7 @@ done
 
 echo "Last deep sleep records:"
 tail /sdcard/sleep_record 2>/dev/null
+
+echo "Swap status:"
+cat /proc/swaps
+

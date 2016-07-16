@@ -10,6 +10,9 @@ function set_little_maxfreq {
     done
 }
 
+# Load settings
+. /sdcard/yadlisettings.config
+
 #POST BOOT PEAK
 
 echo 4 > /sys/devices/system/cpu/cpu0/core_ctl/max_cpus
@@ -66,30 +69,31 @@ do
 		POLL_CYCLE="0.3"
         if [ "$ACCUMULATED_POLL_CYCLE" -le "$ACCUMULATED_POLL_THRESHOLD" ]
         then
-            set_little_maxfreq 768000 2>/dev/null
-            echo 2 > /sys/devices/system/cpu/cpu0/core_ctl/max_cpus
-            echo 1 > /sys/devices/system/cpu/cpu0/core_ctl/min_cpus
-            echo 0 > /sys/devices/system/cpu/cpu4/core_ctl/max_cpus
-            echo 0 > /sys/devices/system/cpu/cpu4/core_ctl/min_cpus
+            set_little_maxfreq $standby_freq 2>/dev/null
+            echo $standby_max_little_core > /sys/devices/system/cpu/cpu0/core_ctl/max_cpus
+            echo $standby_min_little_core > /sys/devices/system/cpu/cpu0/core_ctl/min_cpus
+            echo $standby_max_big_core > /sys/devices/system/cpu/cpu4/core_ctl/max_cpus
+            echo $standby_min_big_core > /sys/devices/system/cpu/cpu4/core_ctl/min_cpus
         fi
 	else
         POLL_CYCLE="20"
         ACCUMULATED_POLL_CYCLE=0
-        set_little_maxfreq 1555200 2>/dev/null
 		GREP_RESULT=`dumpsys activity activities | grep mFocusedActivity | cut -d ' ' -f 6 | cut -d '/' -f 0 | busybox grep -F -f $PROFILE_PERFORMANCE_FILE`
 		if [ -z "$GREP_RESULT" ]
 		then
 			#POWERSAVE
-			echo 3 > /sys/devices/system/cpu/cpu0/core_ctl/max_cpus
-			echo 1 > /sys/devices/system/cpu/cpu0/core_ctl/min_cpus
-			echo 1 > /sys/devices/system/cpu/cpu4/core_ctl/max_cpus
-			echo 0 > /sys/devices/system/cpu/cpu4/core_ctl/min_cpus
+            set_little_maxfreq $normal_freq 2>/dev/null
+            echo $normal_max_little_core > /sys/devices/system/cpu/cpu0/core_ctl/max_cpus
+            echo $normal_min_little_core > /sys/devices/system/cpu/cpu0/core_ctl/min_cpus
+            echo $normal_max_big_core > /sys/devices/system/cpu/cpu4/core_ctl/max_cpus
+            echo $normal_min_big_core > /sys/devices/system/cpu/cpu4/core_ctl/min_cpus
 		else
 			#PERFORMANCE
-			echo 4 > /sys/devices/system/cpu/cpu0/core_ctl/max_cpus
-			echo 2 > /sys/devices/system/cpu/cpu0/core_ctl/min_cpus
-			echo 2 > /sys/devices/system/cpu/cpu4/core_ctl/max_cpus
-			echo 1 > /sys/devices/system/cpu/cpu4/core_ctl/min_cpus
+            set_little_maxfreq $performance_freq 2>/dev/null
+            echo $performance_max_little_core > /sys/devices/system/cpu/cpu0/core_ctl/max_cpus
+            echo $performance_min_little_core > /sys/devices/system/cpu/cpu0/core_ctl/min_cpus
+            echo $performance_max_big_core > /sys/devices/system/cpu/cpu4/core_ctl/max_cpus
+            echo $performance_min_big_core > /sys/devices/system/cpu/cpu4/core_ctl/min_cpus
 		fi
 	fi
 	sleep $POLL_CYCLE

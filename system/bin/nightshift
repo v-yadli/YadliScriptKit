@@ -7,14 +7,22 @@ RED=255
 GREEN=175
 BLUE=105
 
+# Load settings
+. /sdcard/yadlisettings.config
+
+if [ "$nightshift" -eq "0" ]
+then
+    exit
+fi
+
 #dim begin=19:30
-ns_time_dim_begin=`dc "19 60 * 30 + p"`
+ns_time_dim_begin=`dc "$nightshift_start_hour 60 * $nightshift_start_minute + p"`
 #dim end=20:30
-ns_time_dim_end=`dc "20 60 * 30 + p"`
+ns_time_dim_end=`dc "$nightshift_end_hour 60 * $nightshift_end_hour + p"`
 #dim duration=60min
 ns_time_dim_duration=`dc "$ns_time_dim_end $ns_time_dim_begin - p"`
 #restore time=7:30
-ns_time_restore=`dc "7 60 * 30 + p"`
+ns_time_restore=`dc "$nightshift_restore_hour 60 * $nightshift_restore_minute + p"`
 
 function full_dim()
 {
