@@ -18,12 +18,31 @@ echo 4 > /sys/devices/system/cpu/cpu4/core_ctl/max_cpus
 echo 1 > /sys/devices/system/cpu/cpu4/core_ctl/min_cpus
 set_little_maxfreq 1555200
 
-sleep 60
+# Yadi: leave it at maximum performance for a while to boot up
+sleep 120
 
 while [ 1 ]
 do
-	SCREEN_ON=`dumpsys power | grep mHoldingDisplaySuspendBlocker=true`
-	if [ -z $SCREEN_ON ]
+    DUMPSYS_POWER=(`dumpsys power | grep -E 'mHoldingDisplaySuspendBlocker|mWakefulness'`)
+    mWakefulness=${DUMPSYS_POWER[0]}
+    mWakefulnessChanging=${DUMPSYS_POWER[1]}
+    mHoldingDisplaySuspendBlocker=${DUMPSYS_POWER[2]}
+
+    # Yadli: condition for enterning low-power mode:
+    # screen wakelock is released, and it's not waking up
+    # waking up condition:
+    # wakefulness is Awake, or wakefulnessChanging is true.
+
+    Awake="."
+    if ! [ "$mWakefulness" == "mWakefulness=Awake" ] || [ "$mWakefulnessChanging" == "mWakefulnessChanging=true" ]
+    then
+        if [ "$mHoldingDisplaySuspendBlocker" == "mHoldingDisplaySuspendBlocker=false" ]
+        then
+            Awake=""
+        fi
+    fi
+
+	if [ -z $Awake ]
 	then
 		#SCREENOFF
 		POLL_CYCLE="0.15"
